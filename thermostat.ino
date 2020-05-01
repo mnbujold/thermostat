@@ -22,6 +22,7 @@ SH1106Lib display;
 OneWire ow(3);
 
 void setup(){
+  pinMode(A0, INPUT);
   pinMode(A2, INPUT);
   
   display.initialize();
@@ -59,17 +60,28 @@ double readTemp(void){
  
 }
 
+double setTemp(int rawValue){
+  if (rawValue < 200){
+    return (2 * (-1)) + (rawValue * 0.01);
+  }
+  else{
+    return (rawValue * 0.01);
+  }
+}
 void loop(){
   double temp;
   temp = readTemp();
   int analogVal = analogRead(A2);
+  int rstVal = analogRead(A0);
   // Draw box to erase old text
-  display.fillRect(0,8,30,20,BLACK);
+  display.fillRect(0,8,30,30,BLACK);
   // Write data
   display.setCursor(0,8);
   display.println(temp, 2);
   display.setCursor(0,16);
-  display.println(analogVal, 10);
+  display.println(setTemp(analogVal), 1);
+  display.setCursor(0,24);
+  display.println(rstVal, 10);
 
   delay(500);
   
