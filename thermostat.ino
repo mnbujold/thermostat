@@ -10,6 +10,10 @@
 #define TP_FLOAT 1
 #define TP_WINDOWSLINEENDS 0
 
+// Constants for control
+#define TIMEOUT 60  // Timeout to prevent compressor over-cycling
+#define T_OFFSET 2  // Temperature overshoot for hysteresis
+
 // Includes for OLED display
 #include "SH1106Lib.h"
 #include "glcdfont.h"
@@ -21,10 +25,14 @@ SH1106Lib display;
 
 OneWire ow(3);
 
+int timeout = 0;
+int compStatus = 0;
+
 void setup(){
   pinMode(A0, INPUT);
   pinMode(A2, INPUT);
-  
+  pinMode(PB1, OUTPUT);
+  digitalWrite(PB1, LOW);
   display.initialize();
   display.clearDisplay();
   display.setFont(font,5,7);
@@ -36,7 +44,7 @@ void setup(){
   //  delay(750);
   //}
   display.setCursor(0,0);
-  display.println("Thermostat Test");
+  display.println("Thermostat v0.1");
 }
 
 double readTemp(void){
@@ -61,11 +69,11 @@ double readTemp(void){
 }
 
 double setTemp(int rawValue){
-  if (rawValue < 200){
-    return (2 * (-1)) + (rawValue * 0.01);
+  if (rawValue < 175){
+    return (2 * (-1)) + ((rawValue / 42) * 0.5);
   }
   else{
-    return (rawValue * 0.01);
+    return ((rawValue / 42) * 0.5);
   }
 }
 void loop(){
@@ -74,17 +82,59 @@ void loop(){
   int analogVal = analogRead(A2);
   int rstVal = analogRead(A0);
   // Draw box to erase old text
-  display.fillRect(0,8,30,30,BLACK);
+  display.fillRect(60,16,60,60,BLACK);
   // Write data
-  display.setCursor(0,8);
-  display.println(temp, 2);
   display.setCursor(0,16);
-  display.println(setTemp(analogVal), 1);
+  display.print("Current T: ");
+  display.setCursor(60,16);
+  display.println(temp, 1);
   display.setCursor(0,24);
-  display.println(rstVal, 10);
+  display.print("Set T: ");
+  display.setCursor(60,24);
+  display.println(setTemp(analogVal), 1);
+  display.setCursor(0,32);
 
-  delay(500);
-  
+  display.print("Photocell: ");
+  display.setCursor(60,32);
+  //display.println(rstVal, 10);
+  if (rstVal > 1010){
+    display.println("Dark");
+  }
+  else{
+    display.println("Light");  
+  }
+  display.setCursor(0,40);
+  display.print("Timeout: ");
+  display.setCursor(60,40);
+  display.println(timeout, 10);
+
+  display.setCursor(0,48);
+  display.print("Relay: ");
+  display.setCursor(60,48);
+  display.println(digitalRead(PB1), 10);
+  //display.println(compStatus, 10);
+
+  if (temp + T_OFFSET >= setTemp(analogVal)){
+    // Relay on
+    if (timeout == 0){
+      digitalWrite(PB1, HIGH);
+      compStatus = 1;
+    }
+    
+  }
+  else{
+    if (compStatus == 1){
+      // Relay off
+      digitalWrite(PB1, LOW);
+      compStatus = 0;
+      timeout = TIMEOUT;
+    }
+  }
+
+  if (compStatus == 0){
+    timeout--;
+  }
+  delay(1000);
   
 }
 
