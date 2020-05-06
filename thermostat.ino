@@ -1,3 +1,17 @@
+/*
+ * ATTiny85-based Thermostat
+ * v0.2
+ * M. Bujold - May 2020
+ * Version History
+ * v0.1 - Original test build
+ * v0.2 - Added sanity check on timeout
+ */
+
+// Constants for control
+#define TIMEOUT 120  // Timeout to prevent compressor over-cycling
+#define T_OFFSET 1  // Temperature overshoot for hysteresis
+#define LOOPDELAY 1000 // How often to refresh
+
 #define SDA_PORT PORTB
 #define SDA_PIN 0
 #define SCL_PORT PORTB
@@ -10,28 +24,29 @@
 #define TP_FLOAT 1
 #define TP_WINDOWSLINEENDS 0
 
-// Constants for control
-#define TIMEOUT 60  // Timeout to prevent compressor over-cycling
-#define T_OFFSET 2  // Temperature overshoot for hysteresis
-
 // Includes for OLED display
 #include "SH1106Lib.h"
 #include "glcdfont.h"
-
 // Includes for reading temp sensor
 #include "OneWire.h"
 
 SH1106Lib display;
 
+// Temp sensor on pin 3
 OneWire ow(3);
 
+// Program variables
 int timeout = 0;
 int compStatus = 0;
+double temp;
+int analogVal;
+int rstVal;
+
 
 void setup(){
-  pinMode(A0, INPUT);
-  pinMode(A2, INPUT);
-  pinMode(PB1, OUTPUT);
+  pinMode(A0, INPUT); // Photocell
+  pinMode(A2, INPUT); // Potentiometer
+  pinMode(PB1, OUTPUT); // Relay
   digitalWrite(PB1, LOW);
   display.initialize();
   display.clearDisplay();
@@ -44,7 +59,7 @@ void setup(){
   //  delay(750);
   //}
   display.setCursor(0,0);
-  display.println("Thermostat v0.1");
+  display.println("Thermostat v0.2");
 }
 
 double readTemp(void){
@@ -69,6 +84,7 @@ double readTemp(void){
 }
 
 double setTemp(int rawValue){
+  // Take ADC value and convert to temperature (0.5 deg steps)
   if (rawValue < 175){
     return (2 * (-1)) + ((rawValue / 42) * 0.5);
   }
@@ -76,12 +92,12 @@ double setTemp(int rawValue){
     return ((rawValue / 42) * 0.5);
   }
 }
+
 void loop(){
-  double temp;
   temp = readTemp();
-  int analogVal = analogRead(A2);
-  int rstVal = analogRead(A0);
-  // Draw box to erase old text
+  analogVal = analogRead(A2); // Setpoint value
+  rstVal = analogRead(A0); // Photocell value
+  // Draw box to cover old text
   display.fillRect(60,16,60,60,BLACK);
   // Write data
   display.setCursor(0,16);
@@ -134,7 +150,12 @@ void loop(){
   if (compStatus == 0){
     timeout--;
   }
-  delay(1000);
+
+  // Sanity check on timeout, testing showed issue where value went out-of-bounds
+  if (timeout > TIMEOUT || timeout < 0){
+    timeout = TIMEOUT;
+  }
+  delay(LOOPDELAY);
   
 }
 
