@@ -1,16 +1,16 @@
 /*
  * ATTiny85-based Thermostat
- * v0.2
  * M. Bujold - May 2020
  * Version History
  * v0.1 - Original test build
  * v0.2 - Added sanity check on timeout
  */
-
+#define VERSION "0.2"
 // Constants for control
 #define TIMEOUT 120  // Timeout to prevent compressor over-cycling
-#define T_OFFSET 1  // Temperature overshoot for hysteresis
-#define LOOPDELAY 1000 // How often to refresh
+#define T_OFFSET 1  // Temperature offset for hysteresis
+#define LOOPDELAY 1000 // How often to refresh (this affects timeout countdown too)
+#define LOWVALUE 2 // Bottom of scale value (-ive)
 
 #define SDA_PORT PORTB
 #define SDA_PIN 0
@@ -59,7 +59,8 @@ void setup(){
   //  delay(750);
   //}
   display.setCursor(0,0);
-  display.println("Thermostat v0.2");
+  display.print("Thermostat v");
+  display.println(VERSION);
 }
 
 double readTemp(void){
@@ -86,7 +87,7 @@ double readTemp(void){
 double setTemp(int rawValue){
   // Take ADC value and convert to temperature (0.5 deg steps)
   if (rawValue < 175){
-    return (2 * (-1)) + ((rawValue / 42) * 0.5);
+    return (LOWVALUE * (-1)) + ((rawValue / 42) * 0.5);
   }
   else{
     return ((rawValue / 42) * 0.5);
@@ -94,7 +95,7 @@ double setTemp(int rawValue){
 }
 
 void loop(){
-  temp = readTemp();
+  temp = readTemp(); // Read from DS18B20
   analogVal = analogRead(A2); // Setpoint value
   rstVal = analogRead(A0); // Photocell value
   // Draw box to cover old text
@@ -151,7 +152,7 @@ void loop(){
     timeout--;
   }
 
-  // Sanity check on timeout, testing showed issue where value went out-of-bounds
+  // Sanity check on timeout, testing revealed bug where value went out-of-bounds
   if (timeout > TIMEOUT || timeout < 0){
     timeout = TIMEOUT;
   }
