@@ -10,7 +10,8 @@
 #define TIMEOUT 120  // Timeout to prevent compressor over-cycling
 #define T_OFFSET 1  // Temperature offset for hysteresis
 #define LOOPDELAY 1000 // How often to refresh (this affects timeout countdown too)
-#define LOWVALUE 2 // Bottom of scale value (-ive)
+#define LOWVALUE 2 // Bottom of set scale value (-ive)
+#define LIGHT_THRESH 900 // Value above which photocell detects 'dark'
 
 #define SDA_PORT PORTB
 #define SDA_PIN 0
@@ -24,7 +25,7 @@
 #define TP_FLOAT 1
 #define TP_WINDOWSLINEENDS 0
 
-// Includes for OLED display
+// Includes for OLED 128x64 display
 #include "SH1106Lib.h"
 #include "glcdfont.h"
 // Includes for reading temp sensor
@@ -41,27 +42,6 @@ int compStatus = 0;
 double temp;
 int analogVal;
 int rstVal;
-
-
-void setup(){
-  pinMode(A0, INPUT); // Photocell
-  pinMode(A2, INPUT); // Potentiometer
-  pinMode(PB1, OUTPUT); // Relay
-  digitalWrite(PB1, LOW);
-  display.initialize();
-  display.clearDisplay();
-  display.setFont(font,5,7);
-  display.setTextWrap(true);
-  display.setTextColor(WHITE, TRANSPARENT);
-  display.clearDisplay();
-  // temp sensor
-  //while(!ow.search(addr)){
-  //  delay(750);
-  //}
-  display.setCursor(0,0);
-  display.print("Thermostat v");
-  display.println(VERSION);
-}
 
 double readTemp(void){
   byte data[12];
@@ -94,6 +74,30 @@ double setTemp(int rawValue){
   }
 }
 
+void updateDisp(int curTmp, int setTmp, int timeout){
+  
+}
+
+void setup(){
+  pinMode(A0, INPUT); // Photocell
+  pinMode(A2, INPUT); // Potentiometer
+  pinMode(PB1, OUTPUT); // Relay
+  digitalWrite(PB1, LOW);
+  display.initialize();
+  display.clearDisplay();
+  display.setFont(font,5,7);
+  display.setTextWrap(true);
+  display.setTextColor(WHITE, TRANSPARENT);
+  display.clearDisplay();
+  // temp sensor
+  //while(!ow.search(addr)){
+  //  delay(750);
+  //}
+  display.setCursor(0,0);
+  display.print("Thermostat v");
+  display.println(VERSION);
+}
+
 void loop(){
   temp = readTemp(); // Read from DS18B20
   analogVal = analogRead(A2); // Setpoint value
@@ -113,13 +117,18 @@ void loop(){
 
   display.print("Photocell: ");
   display.setCursor(60,32);
-  //display.println(rstVal, 10);
-  if (rstVal > 1010){
-    display.println("Dark");
+  display.println(rstVal, 10);
+  /*
+  if (rstVal > LIGHT_THRESH){
+    // If rstVal is higher than LIGHT_THRESH, assume it is 'dark'
+    display.println(rstVal);
+    //display.println("Dark");
   }
   else{
-    display.println("Light");  
+    display.println(rstVal);
+    //display.println("Light");  
   }
+  */
   display.setCursor(0,40);
   display.print("Timeout: ");
   display.setCursor(60,40);
@@ -131,6 +140,7 @@ void loop(){
   display.println(digitalRead(PB1), 10);
   //display.println(compStatus, 10);
 
+  display.setCursor(0,56);
   if (temp + T_OFFSET >= setTemp(analogVal)){
     // Relay on
     if (timeout == 0){
